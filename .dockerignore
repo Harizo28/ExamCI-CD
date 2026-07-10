@@ -1,0 +1,33 @@
+# Git
+.git
+.gitignore
+.github
+
+# Python
+__pycache__
+*.pyc
+*.pyo
+.venv
+venv
+env
+
+# Tests
+.pytest_cache
+tests/
+
+# MLflow
+mlruns/
+mlartifacts/
+
+# Docs
+README.md
+*.md
+
+# IDE
+.vscode
+.idea
+.DS_Store
+
+# Jenkins (pas besoin dans l'image de l'API)
+jenkins/
+Jenkinsfile

@@ -1,0 +1,45 @@
+# ---------- Python ----------
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+.venv/
+ENV/
+build/
+dist/
+*.egg-info/
+.eggs/
+pip-log.txt
+
+# ---------- MLflow ----------
+mlruns/
+mlartifacts/
+mlflow.db
+mlflow.db-journal
+
+# ---------- Models & Data volumineux ----------
+models/*.pkl
+!models/.gitkeep
+
+# ---------- IDE / OS ----------
+.vscode/
+.idea/
+*.swp
+.DS_Store
+Thumbs.db
+
+# ---------- Tests ----------
+.pytest_cache/
+.coverage
+htmlcov/
+
+# ---------- Docker ----------
+*.log
+
+# ---------- Secrets ----------
+.env
+*.pem
+credentials.json
