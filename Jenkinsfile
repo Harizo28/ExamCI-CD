@@ -15,9 +15,6 @@ pipeline {
         // Timeout global : le pipeline s'arrête au-delà de 30 min
         timeout(time: 30, unit: 'MINUTES')
 
-        // Logs colorés (nécessite le plugin AnsiColor)
-        ansiColor('xterm')
-
         // Ne garde que les 10 derniers builds (économise le disque)
         buildDiscarder(logRotator(numToKeepStr: '10'))
 
