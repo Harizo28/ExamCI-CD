@@ -1,0 +1,50 @@
+# =====================================================
+#  docker-compose.jenkins.yml — Lance Jenkins seul
+#  Usage :
+#    cd jenkins/
+#    docker compose -f docker-compose.jenkins.yml up -d --build
+# =====================================================
+
+services:
+
+  jenkins:
+    build:
+      context: .
+      dockerfile: Dockerfile.jenkins
+    image: mlops-jenkins:lts
+    container_name: mlops_jenkins
+    restart: unless-stopped
+
+    # ---------- Ports ----------
+    ports:
+      - "8080:8080"   # UI web Jenkins
+      - "50000:50000" # Communication master <-> agents (JNLP)
+
+    # ---------- Volumes ----------
+    volumes:
+      # Persistance des données Jenkins (jobs, config, plugins, credentials)
+      - jenkins_home:/var/jenkins_home
+      # Socket Docker de l'hôte -> Jenkins peut lancer des conteneurs
+      # Sur Windows/Docker Desktop, ce chemin est automatiquement redirigé.
+      - /var/run/docker.sock:/var/run/docker.sock
+
+    # ---------- User ----------
+    # On tourne en root pour éviter les soucis de permissions sur le socket Docker
+    # (alternative propre = mapper le GID docker de l'hôte, mais complexe cross-OS)
+    user: root
+
+    # ---------- Accès à l'hôte ----------
+    # Permet aux conteneurs de résoudre "host.docker.internal" vers l'IP de l'hôte.
+    # Automatique sur Docker Desktop (Windows/Mac), il faut le déclarer sur Linux natif.
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+
+    networks:
+      - jenkins_net
+
+volumes:
+  jenkins_home:
+
+networks:
+  jenkins_net:
+    driver: bridge

@@ -1,0 +1,44 @@
+# =====================================================
+#  Dockerfile.jenkins — Jenkins + Docker CLI + Python
+#  Base : jenkins/jenkins:lts (Long Term Support)
+# =====================================================
+FROM jenkins/jenkins:lts
+
+# On passe root pour installer des paquets
+USER root
+
+# ---------- Installer Docker CLI + Docker Compose plugin + Python ----------
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        ca-certificates \
+        curl \
+        gnupg \
+        lsb-release \
+        python3 \
+        python3-pip \
+        python3-venv \
+        git \
+    && install -m 0755 -d /etc/apt/keyrings \
+    && curl -fsSL https://download.docker.com/linux/debian/gpg \
+        | gpg --dearmor -o /etc/apt/keyrings/docker.gpg \
+    && chmod a+r /etc/apt/keyrings/docker.gpg \
+    && echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] \
+        https://download.docker.com/linux/debian $(lsb_release -cs) stable" \
+        > /etc/apt/sources.list.d/docker.list \
+    && apt-get update \
+    && apt-get install -y --no-install-recommends \
+        docker-ce-cli \
+        docker-compose-plugin \
+    && rm -rf /var/lib/apt/lists/*
+
+# ---------- Alias 'python' -> 'python3' ----------
+RUN ln -sf /usr/bin/python3 /usr/local/bin/python
+
+# ---------- Ajouter jenkins au groupe docker (GID 999 par défaut sur Debian) ----------
+# Si le GID de ton hôte diffère, on l'ajustera au runtime via docker-compose
+RUN groupadd -f -g 999 docker && usermod -aG docker jenkins
+
+# ---------- Retour à l'utilisateur jenkins ----------
+USER jenkins
+
+# ---------- Skip du wizard "Getting Started" désactivé (on veut la config manuelle pédagogique) ----------
+# ENV JAVA_OPTS="-Djenkins.install.runSetupWizard=false"
