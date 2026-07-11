@@ -18,7 +18,7 @@ pipeline {
         // Ne garde que les 10 derniers builds (économise le disque)
         buildDiscarder(logRotator(numToKeepStr: '10'))
 
-        // Ajoute l'horodatage aux logs
+        // Ajoute l'horodatage aux logs (nécessite le plugin Timestamper - inclus dans "suggested plugins")
         timestamps()
     }
 
@@ -168,9 +168,16 @@ print(f'[OK] Metrics    : {r.data.metrics}')
                 echo '===== [Stage 7] Déploiement de la stack ====='
                 sh '''
                     set -e
-                    # Recrée uniquement l'API (postgres + mlflow restent up)
-                    docker compose up -d --no-deps --force-recreate api
-                    docker compose ps
+                    # -p mlops-breast-cancer = même project name qu'en local
+                    # -> réutilise le réseau + volumes existants
+                    # postgres + mlflow restent up (lancés manuellement), on ne touche qu'à l'api
+
+                    # Supprimer l'ancien conteneur api s'il existe (recréation propre)
+                    docker rm -f mlops_api 2>/dev/null || true
+
+                    # Recréer l'API avec la nouvelle image
+                    docker compose -p mlops-breast-cancer up -d --no-deps --force-recreate api
+                    docker compose -p mlops-breast-cancer ps
 
                     # Attente + healthcheck (max 30s)
                     echo "Attente du démarrage de l'API..."
@@ -183,7 +190,7 @@ print(f'[OK] Metrics    : {r.data.metrics}')
                         sleep 2
                     done
                     echo "[ERREUR] API n'a pas démarré à temps"
-                    docker compose logs api
+                    docker compose -p mlops-breast-cancer logs api
                     exit 1
                 '''
             }
