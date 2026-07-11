@@ -5,60 +5,34 @@
 
 pipeline {
 
-    // ---------- 1. Agent ----------
-    // 'any' = exécute sur n'importe quel agent disponible.
-    // Ici on n'a qu'un agent : le master (le conteneur Jenkins lui-même).
     agent any
 
-    // ---------- 2. Options globales ----------
     options {
-        // Timeout global : le pipeline s'arrête au-delà de 30 min
         timeout(time: 30, unit: 'MINUTES')
-
-        // Ne garde que les 10 derniers builds (économise le disque)
         buildDiscarder(logRotator(numToKeepStr: '10'))
-
-        // Ajoute l'horodatage aux logs (nécessite le plugin Timestamper - inclus dans "suggested plugins")
         timestamps()
     }
 
-    // ---------- 3. Variables d'environnement ----------
     environment {
-        // Nom de l'image Docker à builder
         IMAGE_NAME    = 'mlops-breast-cancer-api'
-        IMAGE_TAG     = "${BUILD_NUMBER}"          // ex: mlops-breast-cancer-api:12
+        IMAGE_TAG     = "${BUILD_NUMBER}"
         IMAGE_LATEST  = "${IMAGE_NAME}:latest"
-
-        // MLflow (le serveur tourne dans docker-compose.yml, port 5000 exposé sur l'hôte)
-        // host.docker.internal = le "localhost" de l'hôte, vu depuis un conteneur (Windows/Mac Docker Desktop).
-        // Sur Linux natif, ajouter "--add-host=host.docker.internal:host-gateway" au run Jenkins.
         MLFLOW_TRACKING_URI    = 'http://host.docker.internal:5000'
         MLFLOW_EXPERIMENT_NAME = 'breast_cancer_rf'
-
-        // Python : on utilise un venv dans le workspace pour l'isolation
         VENV_DIR = '.venv'
     }
 
-    // ---------- 4. Stages ----------
     stages {
 
-        // =========================================================
-        // Stage 1 - CHECKOUT
-        // =========================================================
         stage('1. Checkout') {
             steps {
                 echo '===== [Stage 1] Checkout du code GitHub ====='
-                // Nettoyage préalable du workspace (pour repartir propre)
                 cleanWs()
-                // Checkout du code de la branche courante
                 checkout scm
                 sh 'ls -la'
             }
         }
 
-        // =========================================================
-        // Stage 2 - INSTALL DEPENDENCIES
-        // =========================================================
         stage('2. Install dependencies') {
             steps {
                 echo '===== [Stage 2] Installation des dépendances Python ====='
@@ -73,9 +47,6 @@ pipeline {
             }
         }
 
-        // =========================================================
-        // Stage 3 - RUN TESTS
-        // =========================================================
         stage('3. Run tests') {
             steps {
                 echo '===== [Stage 3] Exécution des tests Pytest ====='
@@ -87,15 +58,11 @@ pipeline {
             }
             post {
                 always {
-                    // Publie le rapport JUnit dans Jenkins (onglet "Tests")
                     junit allowEmptyResults: true, testResults: 'reports/junit.xml'
                 }
             }
         }
 
-        // =========================================================
-        // Stage 4 - TRAIN MODEL
-        // =========================================================
         stage('4. Train model') {
             steps {
                 echo '===== [Stage 4] Génération du dataset + entraînement ====='
@@ -109,18 +76,11 @@ pipeline {
             }
             post {
                 success {
-                    // Archive le modèle pour pouvoir le retélécharger depuis l'UI Jenkins
                     archiveArtifacts artifacts: 'models/model.pkl', fingerprint: true
                 }
             }
         }
 
-        // =========================================================
-        // Stage 5 - LOG TO MLFLOW
-        // =========================================================
-        // Note : le log MLflow est DÉJÀ fait pendant train.py (mlflow.log_metrics).
-        // Ce stage sert à VÉRIFIER que le tracking a bien eu lieu
-        // et à afficher les métriques du dernier run.
         stage('5. Verify MLflow logging') {
             steps {
                 echo '===== [Stage 5] Vérification du logging MLflow ====='
@@ -146,9 +106,6 @@ print(f'[OK] Metrics    : {r.data.metrics}')
             }
         }
 
-        // =========================================================
-        // Stage 6 - BUILD DOCKER IMAGE
-        // =========================================================
         stage('6. Build Docker image') {
             steps {
                 echo '===== [Stage 6] Construction de l\'image Docker ====='
@@ -160,31 +117,20 @@ print(f'[OK] Metrics    : {r.data.metrics}')
             }
         }
 
-        // =========================================================
-        // Stage 7 - DEPLOY WITH DOCKER COMPOSE
-        // =========================================================
         stage('7. Deploy with Docker Compose') {
             steps {
                 echo '===== [Stage 7] Déploiement de la stack ====='
                 sh '''
                     set -e
-                    # -p mlops-breast-cancer = même project name qu'en local
-                    # -> réutilise le réseau + volumes existants
-                    # postgres + mlflow restent up (lancés manuellement), on ne touche qu'à l'api
-
-                    # Supprimer l'ancien conteneur api s'il existe (recréation propre)
                     docker rm -f mlops_api 2>/dev/null || true
-
-                    # Recréer l'API avec la nouvelle image
                     docker compose -p mlops-breast-cancer up -d --no-deps --force-recreate api
                     docker compose -p mlops-breast-cancer ps
 
-                    # Attente + healthcheck (max 30s)
                     echo "Attente du démarrage de l'API..."
-                    for i in $(seq 1 15); do
-                        if curl -fsS http://localhost:8000/health > /dev/null 2>&1; then
+                    for i in $(seq 1 20); do
+                        if curl -fsS http://host.docker.internal:8000/health > /dev/null 2>&1; then
                             echo "[OK] API up après ${i}x2s"
-                            curl -s http://localhost:8000/ | python3 -m json.tool || true
+                            curl -s http://host.docker.internal:8000/ | python3 -m json.tool || true
                             exit 0
                         fi
                         sleep 2
@@ -197,7 +143,6 @@ print(f'[OK] Metrics    : {r.data.metrics}')
         }
     }
 
-    // ---------- 5. Post actions ----------
     post {
         success {
             echo '✅ ============================================='
@@ -216,7 +161,6 @@ print(f'[OK] Metrics    : {r.data.metrics}')
             echo '❌ ============================================='
         }
         always {
-            // Nettoyage du venv pour économiser l'espace
             sh 'rm -rf ${VENV_DIR} reports || true'
         }
     }
