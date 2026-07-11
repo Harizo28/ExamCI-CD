@@ -66,7 +66,7 @@ pipeline {
                     set -e
                     python3 -m venv ${VENV_DIR}
                     . ${VENV_DIR}/bin/activate
-                    python -m pip install --upgrade pip
+                    python -m pip install --upgrade pip setuptools wheel
                     pip install --no-cache-dir -r requirements.txt
                     pip list
                 '''

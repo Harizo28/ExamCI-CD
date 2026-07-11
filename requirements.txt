@@ -1,3 +1,7 @@
+# ---------- Build backend (nécessaire pour Python 3.13) ----------
+setuptools>=75.0.0
+wheel>=0.44.0
+
 # ---------- Machine Learning ----------
 scikit-learn==1.5.2
 pandas==2.2.3
@@ -6,6 +10,7 @@ joblib==1.4.2
 
 # ---------- MLflow + PostgreSQL ----------
 mlflow==2.17.2
+pyarrow>=18.0.0
 psycopg2-binary==2.9.10
 
 # ---------- API ----------
